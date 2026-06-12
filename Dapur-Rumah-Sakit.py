@@ -2,19 +2,17 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime
-import io
 
 st.set_page_config(page_title="Inventaris Dapur RS", layout="wide")
 
 # --- DATA AKUN LOGIN ---
 USER_CREDENTIALS = {"admin_dapur": "DapurRSKeamanan2026", "staf_gizi": "LogistikDapurMaju"}
 
-# --- FUNGSI LOGIN ---
+# --- FUNGSI HALAMAN LOGIN ---
 def halaman_login():
-    st.markdown('<style>.stApp { background-color: #f4f9f4 !important; }</style>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<h2 style='text-align: center; color: #1a3a2a;'>🔒 Gerbang Keamanan Sistem</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>🔒 Gerbang Keamanan</h2>", unsafe_allow_html=True)
         with st.form("form_login"):
             username = st.text_input("Username:")
             password = st.text_input("Password:", type="password")
@@ -35,7 +33,6 @@ else:
         conn.row_factory = sqlite3.Row
         return conn
 
-    # --- MENU UTAMA ---
     st.title("🏥 Sistem Informasi Inventaris Dapur")
     if st.button("🚪 Logout"):
         st.session_state["terautentikasi"] = False
@@ -43,29 +40,49 @@ else:
         
     menu = st.sidebar.radio("✨ PILIH TINDAKAN:", ["📋 Lihat Dasbor Stok", "➕ Input Barang Masuk", "➖ Input Barang Keluar", "⚙️ Manajemen Data Master"])
     conn = get_db_connection()
+    
+    # Ambil data pembantu
+    try:
+        list_staf = [row['nama_staf'] for row in conn.execute('SELECT nama_staf FROM mst_staff').fetchall()]
+        list_barang = {row['nama_barang']: row['item_id'] for row in conn.execute('SELECT nama_barang, item_id FROM mst_items').fetchall()}
+    except:
+        st.error("Database belum siap. Pastikan file .db sudah benar.")
 
     if menu == "📋 Lihat Dasbor Stok":
-        st.subheader("📦 Monitoring Sisa Stok")
+        st.subheader("📦 Monitoring Stok")
         query = '''SELECT b.batch_id AS [ID Batch], i.nama_barang AS [Nama Bahan], b.sisa_stok AS [Sisa], i.satuan AS [Satuan], b.expired_date AS [Kadaluarsa]
-                   FROM trx_inventory_batches b JOIN mst_items i ON b.item_id = i.item_id WHERE b.sisa_stok > 0 ORDER BY b.expired_date ASC'''
-        df = pd.read_sql_query(query, conn)
-        st.dataframe(df, use_container_width=True)
+                   FROM trx_inventory_batches b JOIN mst_items i ON b.item_id = i.item_id WHERE b.sisa_stok > 0'''
+        st.dataframe(pd.read_sql_query(query, conn), use_container_width=True)
+
+    elif menu == "➕ Input Barang Masuk":
+        with st.form("masuk"):
+            pilih = st.selectbox("Barang:", list(list_barang.keys()))
+            jml = st.number_input("Jumlah:", min_value=0.1)
+            tgl = st.date_input("Exp Date:")
+            if st.form_submit_button("💾 Simpan"):
+                conn.execute('INSERT INTO trx_inventory_batches (item_id, sisa_stok, expired_date) VALUES (?, ?, ?)', (list_barang[pilih], jml, str(tgl)))
+                conn.commit()
+                st.success("Berhasil!")
+
+    elif menu == "➖ Input Barang Keluar":
+        df_stok = pd.read_sql_query('SELECT * FROM trx_inventory_batches b JOIN mst_items i ON b.item_id = i.item_id WHERE sisa_stok > 0', conn)
+        if df_stok.empty: st.warning("Stok kosong")
+        else:
+            with st.form("keluar"):
+                batch_id = st.selectbox("Pilih Batch:", df_stok['batch_id'].tolist())
+                jml_keluar = st.number_input("Jumlah Keluar:", min_value=0.1)
+                if st.form_submit_button("✅ Konfirmasi"):
+                    conn.execute('UPDATE trx_inventory_batches SET sisa_stok = sisa_stok - ? WHERE batch_id = ?', (jml_keluar, batch_id))
+                    conn.commit()
+                    st.success("Stok diperbarui!")
 
     elif menu == "⚙️ Manajemen Data Master":
         st.subheader("🛠 Edit & Hapus Bahan")
-        df_barang = pd.read_sql_query('SELECT * FROM mst_items', conn)
-        st.table(df_barang)
-        id_hapus = st.number_input("Masukkan ID Barang untuk dihapus:", min_value=1, step=1)
-        if st.button("🗑️ Hapus Barang"):
-            try:
-                conn.execute('DELETE FROM mst_items WHERE item_id = ?', (id_hapus,))
-                conn.commit()
-                st.success("Data berhasil dihapus!")
-                st.rerun()
-            except Exception as e:
-                st.error("Gagal menghapus: Barang mungkin sudah memiliki riwayat transaksi.")
+        st.table(pd.read_sql_query('SELECT * FROM mst_items', conn))
+        id_hapus = st.number_input("ID Barang yang dihapus:", min_value=1)
+        if st.button("🗑️ Hapus"):
+            conn.execute('DELETE FROM mst_items WHERE item_id = ?', (id_hapus,))
+            conn.commit()
+            st.rerun()
 
-    # (Lanjutkan dengan logika Input Masuk & Keluar yang lama di sini...)
-    # Kode untuk Input Barang Masuk & Keluar Anda sama seperti sebelumnya.
-    
     conn.close()
