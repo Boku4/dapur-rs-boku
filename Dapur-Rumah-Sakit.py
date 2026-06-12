@@ -59,19 +59,26 @@ elif menu == "➖ Input Barang Keluar":
 elif menu == "⚙️ Manajemen Bahan":
     st.subheader("⚙️ Tambah & Kelola Bahan")
     
-    # Form Tambah Bahan
-    with st.form("form_tambah_banyak"):
+    # Form Tambah Bahan yang Lengkap
+    with st.form("form_tambah_lengkap"):
         nama_baru = st.text_input("Nama Bahan Baru:")
+        kategori = st.selectbox("Jenis Bahan:", ["Bahan Basah", "Bahan Kering", "Bumbu", "Lainnya"])
+        satuan = st.selectbox("Satuan:", ["kg", "gram", "liter", "pcs", "ikat"])
+        harga = st.number_input("Harga Satuan:", min_value=0)
+        
         if st.form_submit_button("➕ Tambah ke Daftar"):
             if nama_baru:
                 try:
-                    conn.execute('INSERT INTO mst_items (nama_barang) VALUES (?)', (nama_baru,))
+                    # Menambahkan data ke semua kolom yang diminta database
+                    conn.execute('INSERT INTO mst_items (nama_barang, jenis_bahan, satuan, harga_satuan) VALUES (?, ?, ?, ?)', 
+                                 (nama_baru, kategori, satuan, harga))
                     conn.commit()
                     st.success(f"'{nama_baru}' berhasil ditambahkan!")
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Gagal: {e}")
+                    st.error(f"Eror: {e}")
             else:
-                st.warning("Nama barang tidak boleh kosong.")
+                st.warning("Nama bahan tidak boleh kosong.")
     
     st.write("---")
     st.subheader("Daftar Bahan Saat Ini:")
