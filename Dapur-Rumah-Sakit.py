@@ -18,12 +18,14 @@ conn = get_db()
 
 # --- 1. Lihat Stok ---
 if menu == "📋 Lihat Stok":
-    st.subheader("📦 Monitoring Sisa Stok")
-    query = '''SELECT b.batch_id, i.nama_barang, b.sisa_stok, b.expired_date 
-               FROM trx_inventory_batches b 
-               JOIN mst_items i ON b.item_id = i.item_id'''
+    st.subheader("📦 Monitoring Stok")
+    query = '''SELECT i.nama_barang, b.sisa_stok, b.tgl_masuk, b.expired_date 
+               FROM trx_inventory_batches b JOIN mst_items i ON b.item_id = i.item_id'''
     df = pd.read_sql_query(query, conn)
-    st.dataframe(df, use_container_width=True)
+    
+    # Membuat index mulai dari 1
+    df.index = df.index + 1
+    st.table(df)
 
 # --- 2. Input Barang Masuk ---
 elif menu == "➕ Input Barang Masuk":
@@ -34,10 +36,20 @@ elif menu == "➕ Input Barang Masuk":
     with st.form("form_masuk"):
         pilih_barang = st.selectbox("Pilih Barang:", list(item_dict.keys()))
         jml = st.number_input("Jumlah:", min_value=0.1)
+        # Menambahkan info satuan dari master data
+        satuan_barang = items[items['nama_barang'] == pilih_barang]['satuan'].values[0]
+        st.write(f"Satuan: **{satuan_barang}**")
+        
+        tgl_exp = st.date_input("Tanggal Kadaluarsa:")
+        
         if st.form_submit_button("💾 Simpan"):
-            conn.execute('INSERT INTO trx_inventory_batches (item_id, sisa_stok) VALUES (?, ?)', (item_dict[pilih_barang], jml))
+            # Kita isi kolom wajib agar tidak eror
+            conn.execute('''INSERT INTO trx_inventory_batches 
+                         (item_id, jumlah_masuk, sisa_stok, expired_date, tgl_masuk) 
+                         VALUES (?, ?, ?, ?, ?)''', 
+                         (item_dict[pilih_barang], jml, jml, str(tgl_exp), str(datetime.now().date())))
             conn.commit()
-            st.success("Berhasil!")
+            st.success("Berhasil tersimpan!")
             st.rerun()
 
 # --- 3. Input Barang Keluar ---
