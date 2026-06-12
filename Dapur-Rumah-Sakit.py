@@ -57,13 +57,25 @@ elif menu == "➖ Input Barang Keluar":
 
 # --- 4. Manajemen Bahan ---
 elif menu == "⚙️ Manajemen Bahan":
-    st.subheader("⚙️ Manajemen Bahan")
-    nama_baru = st.text_input("Nama Bahan Baru:")
-    if st.button("➕ Tambah Bahan"):
-        conn.execute('INSERT INTO mst_items (nama_barang) VALUES (?)', (nama_baru,))
-        conn.commit()
-        st.success("Berhasil!")
-        st.rerun()
-    st.table(pd.read_sql_query('SELECT * FROM mst_items', conn))
+    st.subheader("⚙️ Tambah & Kelola Bahan")
+    
+    # Form Tambah Bahan
+    with st.form("form_tambah_banyak"):
+        nama_baru = st.text_input("Nama Bahan Baru:")
+        if st.form_submit_button("➕ Tambah ke Daftar"):
+            if nama_baru:
+                try:
+                    conn.execute('INSERT INTO mst_items (nama_barang) VALUES (?)', (nama_baru,))
+                    conn.commit()
+                    st.success(f"'{nama_baru}' berhasil ditambahkan!")
+                except Exception as e:
+                    st.error(f"Gagal: {e}")
+            else:
+                st.warning("Nama barang tidak boleh kosong.")
+    
+    st.write("---")
+    st.subheader("Daftar Bahan Saat Ini:")
+    df_items = pd.read_sql_query('SELECT * FROM mst_items', conn)
+    st.table(df_items)
 
 conn.close()
