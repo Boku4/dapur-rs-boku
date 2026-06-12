@@ -27,15 +27,27 @@ if menu == "📋 Lihat Stok":
     conn.close()
 
 # 2. MENU INPUT BARANG MASUK
-elif menu == "➕ Input Barang Masuk":
-    st.subheader("➕ Input Barang Masuk")
+elif menu == "⚙️ Manajemen Bahan":
+    st.subheader("⚙️ Manajemen Bahan")
     conn = get_db()
-    nama_barang = st.text_input("Nama Barang:")
-    jumlah = st.number_input("Jumlah:", min_value=0.1)
-    if st.button("💾 Simpan Masuk"):
-        conn.execute('INSERT INTO trx_inventory_batches (item_id, sisa_stok) VALUES (?, ?)', (nama_barang, jumlah))
-        conn.commit()
-        st.success("Data berhasil disimpan!")
+    nama_baru = st.text_input("Nama Bahan Baru:")
+    
+    if st.button("➕ Tambah Bahan"):
+        if nama_baru:
+            try:
+                # Menggunakan NULL untuk item_id agar database mengisi angka otomatis (AUTOINCREMENT)
+                conn.execute('INSERT INTO mst_items (item_id, nama_barang) VALUES (NULL, ?)', (nama_baru,))
+                conn.commit()
+                st.success(f"Bahan '{nama_baru}' berhasil ditambahkan!")
+                st.rerun() # Refresh agar tabel langsung terupdate
+            except Exception as e:
+                st.error(f"Eror database: {e}")
+        else:
+            st.warning("Nama bahan tidak boleh kosong!")
+    
+    st.write("---")
+    df_items = pd.read_sql_query('SELECT * FROM mst_items', conn)
+    st.table(df_items)
     conn.close()
 
 # 3. MENU INPUT BARANG KELUAR
