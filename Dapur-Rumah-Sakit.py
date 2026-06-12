@@ -85,8 +85,8 @@ else:
     st.markdown(f"**Pengguna Aktif:** `{st.session_state['user_aktif']}`")
     st.markdown("---")
 
-    menu = st.sidebar.radio("✨ PILIH TINDAKAN:", ["📋 Lihat Dasbor Stok Gudang", "➕ Input Barang Masuk", "➖ Input Barang Keluar"])
-
+    menu = st.sidebar.radio("✨ PILIH TINDAKAN:", ["📋 Lihat Dasbor Stok Gudang", "➕ Input Barang Masuk", "➖ Input Barang Keluar", "⚙️ Manajemen Data Master"])
+    
     conn = get_db_connection()
     list_staf = [row['nama_staf'] for row in conn.execute('SELECT nama_staf FROM mst_staff').fetchall()]
     list_barang = {row['nama_barang']: row['item_id'] for row in conn.execute('SELECT nama_barang, item_id FROM mst_items').fetchall()}
@@ -145,6 +145,25 @@ else:
                 st.success("✅ Berhasil disimpan!")
 
     elif menu == "➖ Input Barang Keluar":
+        elif menu == "⚙️ Manajemen Data Master":
+     st.subheader("🛠 Edit & Hapus Bahan")
+     # Menampilkan tabel barang
+     barang_list = conn.execute('SELECT * FROM mst_items').fetchall()
+     df_barang = pd.DataFrame(barang_list, columns=['ID', 'Nama Bahan', 'Kategori', 'Satuan'])
+     st.table(df_barang)
+
+     # Form Hapus
+     id_hapus = st.number_input("Masukkan ID Barang yang ingin dihapus:", min_value=1, step=1)
+     if st.button("🗑️ Hapus Barang"):
+         # Cek apakah barang dipakai di transaksi
+         cek_transaksi = conn.execute('SELECT * FROM trx_inventory_batches WHERE item_id = ?', (id_hapus,)).fetchone()
+         if cek_transaksi:
+             st.error("Barang ini tidak bisa dihapus karena sudah ada riwayat transaksinya!")
+         else:
+             conn.execute('DELETE FROM mst_items WHERE item_id = ?', (id_hapus,))
+             conn.commit()
+             st.success("Data berhasil dihapus!")
+             st.rerun()
         st.subheader("Form Pengambilan Bahan Harian")
         if df_stok.empty:
             st.error("Tidak ada stok.")
